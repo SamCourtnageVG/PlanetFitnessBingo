@@ -83,7 +83,17 @@
     button:hover, .submit-btn:hover {
       background-color: #e0ccfa;
     }
-  </style>
+    .tile.completed {
+    animation: bounce 0.3s ease;
+  }
+
+  @keyframes bounce {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1); }
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body style="background-color: #7726e0;">
   <div class="header">
@@ -158,6 +168,16 @@
             return arr;
           }, []);
           saveProgress(newSaved);
+
+          // Trigger confetti if all tiles completed
+          if (newSaved.length === tasks.length) {
+            confetti({
+              particleCount: 100,
+              spread: 80,
+              origin: { y: 0.6 },
+              colors: ['#7726e0', '#a0e8af', '#ffffff']
+            });
+          }
         };
         grid.appendChild(tile);
       });
