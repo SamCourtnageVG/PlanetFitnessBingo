@@ -120,7 +120,7 @@
     </a>
   </div>
 
-  <audio id="celebrationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" preload="auto"></audio>
+  <audio id="celebrationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" preload="auto" playsinline></audio>
 
   <script>
     const tasks = [
@@ -185,7 +185,12 @@
           if (newSaved.length === tasks.length) {
             document.getElementById("completionMessage").style.display = "block";
             const sound = document.getElementById("celebrationSound");
-            if (sound) sound.play();
+            if (sound) {
+  sound.currentTime = 0;
+  sound.volume = 1;
+  sound.muted = false;
+  sound.play().catch(e => console.log("Audio play failed:", e));
+}
             confetti({
               particleCount: 100,
               spread: 80,
