@@ -101,7 +101,9 @@
     <h1 style="color: black;">Spring Into Fitness Bingo</h1>
   </div>
 
-  <div class="grid" id="bingoGrid"></div>
+  <div id="completionMessage" style="display: none; color: #ffffff; font-weight: bold; font-size: 1.2em; text-align: center; margin: 20px;">🎉 You’ve completed the board! Don’t forget to submit your entry below.</div>
+
+$1
 
   <div class="footer">
     <button onclick="resetBoard()">Reset Board</button>
@@ -171,10 +173,16 @@
 
           // Trigger confetti if all tiles completed
           if (newSaved.length === tasks.length) {
+            document.getElementById("completionMessage").style.display = "block";
+            const sound = document.getElementById("celebrationSound");
+            if (sound) sound.play();
             confetti({
               particleCount: 100,
               spread: 80,
               origin: { y: 0.6 },
+              colors: ['#7726e0', '#a0e8af', '#ffffff']
+            });
+          },
               colors: ['#7726e0', '#a0e8af', '#ffffff']
             });
           }
@@ -185,5 +193,7 @@
 
     renderGrid();
   </script>
-</body>
+<audio id="celebrationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" preload="auto"></audio>
+
+$1
 </html>
