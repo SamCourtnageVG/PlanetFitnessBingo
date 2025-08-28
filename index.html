@@ -16,7 +16,8 @@
     }
 
     .header {
-      background-color: #ffffff; color: #000000;
+      background-color: #ffffff;
+      color: #000000;
       width: 100%;
       padding: 20px 0;
       display: flex;
@@ -25,7 +26,7 @@
     }
 
     .logo {
-      max-width: 140px;
+      max-width: 120px;
     }
 
     h1 {
@@ -58,6 +59,13 @@
     .tile.completed {
       background-color: #a0e8af;
       text-decoration: line-through;
+      animation: bounce 0.3s ease;
+    }
+
+    @keyframes bounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
     }
 
     .footer {
@@ -83,27 +91,27 @@
     button:hover, .submit-btn:hover {
       background-color: #e0ccfa;
     }
-    .tile.completed {
-    animation: bounce 0.3s ease;
-  }
 
-  @keyframes bounce {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.08); }
-    100% { transform: scale(1); }
-  }
-</style>
-<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    #completionMessage {
+      display: none;
+      color: #ffffff;
+      font-weight: bold;
+      font-size: 1.2em;
+      text-align: center;
+      margin: 20px;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
-<body style="background-color: #7726e0;">
+<body>
   <div class="header">
-    <img src="PF-Cog-Logo-new (1).png" alt="Planet Fitness Logo" class="logo" style="max-width: 120px;">
+    <img src="PF-Cog-Logo-new (1).png" alt="Planet Fitness Logo" class="logo">
     <h1 style="color: black;">Spring Into Fitness Bingo</h1>
   </div>
 
-  <div id="completionMessage" style="display: none; color: #ffffff; font-weight: bold; font-size: 1.2em; text-align: center; margin: 20px;">🎉 You’ve completed the board! Don’t forget to submit your entry below.</div>
+  <div id="completionMessage">🎉 You’ve completed the board! Don’t forget to submit your entry below.</div>
 
-$1
+  <div class="grid" id="bingoGrid"></div>
 
   <div class="footer">
     <button onclick="resetBoard()">Reset Board</button>
@@ -111,6 +119,8 @@ $1
       Submit My Completed Board
     </a>
   </div>
+
+  <audio id="celebrationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" preload="auto"></audio>
 
   <script>
     const tasks = [
@@ -125,7 +135,7 @@ $1
       "Attend a Circuit Class",
       "Drink 2L of Water",
       "Do a Wall Sit for 1 Min",
-            "10 Min Post-Workout Stretch",
+      "10 Min Post-Workout Stretch",
       "Try a New Machine",
       "Introduce Yourself to Staff",
       "Attend 3 Days in a Row",
@@ -152,6 +162,7 @@ $1
 
     function resetBoard() {
       localStorage.removeItem("bingoProgress");
+      document.getElementById("completionMessage").style.display = "none";
       renderGrid();
     }
 
@@ -171,7 +182,6 @@ $1
           }, []);
           saveProgress(newSaved);
 
-          // Trigger confetti if all tiles completed
           if (newSaved.length === tasks.length) {
             document.getElementById("completionMessage").style.display = "block";
             const sound = document.getElementById("celebrationSound");
@@ -182,9 +192,6 @@ $1
               origin: { y: 0.6 },
               colors: ['#7726e0', '#a0e8af', '#ffffff']
             });
-          },
-              colors: ['#7726e0', '#a0e8af', '#ffffff']
-            });
           }
         };
         grid.appendChild(tile);
@@ -193,7 +200,5 @@ $1
 
     renderGrid();
   </script>
-<audio id="celebrationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" preload="auto"></audio>
-
-$1
+</body>
 </html>
