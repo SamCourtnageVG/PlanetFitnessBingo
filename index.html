@@ -21,7 +21,6 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 0;
       margin: 0;
       background-color: var(--bg);
     }
@@ -43,7 +42,6 @@
     .logo { max-width: 110px; height: auto; }
     h1 { margin: 6px 0 0 0; color: #000; font-size: clamp(18px, 4.5vw, 26px); text-align: center; }
 
-    /* Helper strip */
     .helper {
       color: #ffffff;
       opacity: 0.95;
@@ -53,7 +51,6 @@
       max-width: 680px;
     }
 
-    /* Responsive grid — tuned for phones */
     .grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
@@ -65,7 +62,7 @@
     }
 
     @media (max-width: 400px){
-      .grid { grid-template-columns: repeat(3, 1fr); } /* 3 columns on very small phones */
+      .grid { grid-template-columns: repeat(3, 1fr); }
     }
 
     .tile {
@@ -79,7 +76,7 @@
       word-wrap: break-word;
       box-shadow: 1px 1px 3px var(--shadow);
       border-radius: 8px;
-      min-height: 92px;   /* comfy tap target */
+      min-height: 92px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -123,6 +120,10 @@
       width: 100%;
       max-width: 680px;
       box-shadow: 1px 1px 3px var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center; /* ensures text is centered */
+      text-align: center;
     }
     button:hover, .submit-btn:hover { background-color: #eadefb; }
 
@@ -134,7 +135,7 @@
       max-width: 680px;
     }
     @media (max-width: 460px){
-      .btn-row { grid-template-columns: 1fr; } /* stack on small screens */
+      .btn-row { grid-template-columns: 1fr; }
     }
 
     #completionMessage {
@@ -146,7 +147,6 @@
       margin: 10px 16px;
     }
 
-    /* Tiny toast for copy confirmation */
     .toast {
       position: fixed;
       left: 50%;
@@ -165,7 +165,6 @@
     .toast.show { opacity: 0.96; }
   </style>
 
-  <!-- Confetti (visual only, no sound) -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
@@ -194,7 +193,6 @@
   <div class="toast" id="toast">Copied!</div>
 
   <script>
-    // -------- Original tasks (no FREE tile) --------
     const tasks = [
       "Attend a Flow Class",
       "Use the Massage Chairs",
@@ -225,7 +223,6 @@
     const grid = document.getElementById("bingoGrid");
     const toast = document.getElementById("toast");
 
-    // --- Storage (keep original key name) ---
     function saveProgress(state) {
       localStorage.setItem("bingoProgress", JSON.stringify(state));
     }
@@ -239,7 +236,6 @@
       renderGrid();
     }
 
-    // Optional: allow state restore via ?state= for staff verification
     function restoreFromQuery() {
       const p = new URLSearchParams(location.search).get("state");
       if (!p) return;
@@ -251,7 +247,6 @@
       } catch {}
     }
 
-    // --- UI ---
     function showToast(msg="Copied!") {
       toast.textContent = msg;
       toast.classList.add("show");
@@ -274,7 +269,6 @@
           }, []);
           saveProgress(newSaved);
 
-          // Completion visuals (no sound)
           if (newSaved.length === tasks.length) {
             document.getElementById("completionMessage").style.display = "block";
             confetti({
@@ -291,9 +285,7 @@
       });
     }
 
-    // --- Copy progress for Virtuagym Community ---
     function buildShareLink() {
-      // Encodes the completed tile indices; opening this URL restores the same state
       const base = location.origin + location.pathname;
       const saved = loadProgress().sort((a,b)=>a-b);
       const code = btoa(JSON.stringify(saved));
@@ -305,7 +297,6 @@
       const total = tasks.length;
       const link = buildShareLink();
 
-      // Add a short checklist preview (first 6 completed items, if any)
       const saved = loadProgress();
       const preview = saved.slice(0, 6).map(i => `• ${tasks[i]}`).join("\n");
       const previewBlock = preview ? `\n\nRecent wins:\n${preview}` : "";
@@ -320,17 +311,14 @@ Follow my board here: ${link}${previewBlock}`;
         await navigator.clipboard.writeText(text);
         showToast("Progress copied!");
       } catch (e) {
-        // Fallback: prompt
         window.prompt("Copy your progress text:", text);
       }
     }
 
-    // --- Wire up buttons ---
     document.getElementById("copyBtn").addEventListener("click", copyMyProgress);
     document.getElementById("resetBtn").addEventListener("click", resetBoard);
 
-    // --- Init ---
-    restoreFromQuery();  // harmless if no ?state=
+    restoreFromQuery();
     renderGrid();
   </script>
 </body>
