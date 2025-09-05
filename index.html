@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Spring Into Fitness Bingo</title>
   <style>
     body {
@@ -23,6 +23,15 @@
       display: flex;
       flex-direction: column;
       align-items: center;
+      gap: 8px;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
     }
 
     .logo {
@@ -35,13 +44,44 @@
       text-align: center;
     }
 
+    .stats {
+      width: 100%;
+      max-width: 600px;
+      padding: 12px 16px;
+      color: #ffffff;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      align-items: center;
+      box-sizing: border-box;
+    }
+
+    .progress-wrap {
+      width: 100%;
+      background: rgba(255,255,255,0.2);
+      border-radius: 999px;
+      overflow: hidden;
+      height: 10px;
+    }
+    .progress-bar {
+      height: 100%;
+      width: 0%;
+      background: #a0e8af;
+      transition: width 0.25s ease;
+    }
+    .stat-text {
+      font-weight: bold;
+    }
+
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       width: 100%;
       max-width: 600px;
-      margin: 20px auto;
+      margin: 10px auto 20px;
+      padding: 0 12px;
+      box-sizing: border-box;
     }
 
     .tile {
@@ -50,16 +90,32 @@
       background-color: #ffffff;
       text-align: center;
       cursor: pointer;
-      transition: background-color 0.2s;
+      transition: background-color 0.2s, transform 0.06s;
       user-select: none;
       word-wrap: break-word;
-      box-shadow: 1px 1px 3px rgba(0, 0, 0, 0.1);
+      box-shadow: 1px 1px 3px rgba(0,0,0,0.1);
+      border-radius: 6px;
+      min-height: 84px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      outline: none;
     }
+    .tile:active { transform: scale(0.99); }
 
     .tile.completed {
       background-color: #a0e8af;
       text-decoration: line-through;
       animation: bounce 0.3s ease;
+    }
+
+    .tile.free {
+      background: repeating-linear-gradient(135deg, #f6f0ff, #f6f0ff 8px, #ffffff 8px, #ffffff 16px);
+      border-style: dashed;
+      font-weight: bold;
+      color: #7726e0;
+      cursor: default;
+      text-decoration: none;
     }
 
     @keyframes bounce {
@@ -69,14 +125,16 @@
     }
 
     .footer {
-      margin: 40px 0 60px 0;
+      margin: 20px 0 60px 0;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 12px;
+      padding: 0 12px;
+      box-sizing: border-box;
     }
 
-    button, .submit-btn {
+    button, .submit-btn, .icon-btn {
       padding: 10px 20px;
       font-size: 16px;
       cursor: pointer;
@@ -87,8 +145,11 @@
       text-decoration: none;
       font-weight: bold;
     }
-
-    button:hover, .submit-btn:hover {
+    .icon-btn {
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    button:hover, .submit-btn:hover, .icon-btn:hover {
       background-color: #e0ccfa;
     }
 
@@ -98,15 +159,44 @@
       font-weight: bold;
       font-size: 1.2em;
       text-align: center;
-      margin: 20px;
+      margin: 12px 16px;
+    }
+
+    .helper {
+      color: #ffffff;
+      font-size: 0.9em;
+      text-align: center;
+      opacity: 0.9;
+      max-width: 640px;
+    }
+
+    .tile:focus-visible,
+    button:focus-visible,
+    .submit-btn:focus-visible,
+    .icon-btn:focus-visible {
+      outline: 3px solid #a0e8af;
+      outline-offset: 2px;
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
 </head>
 <body>
   <div class="header">
     <img src="PF-Cog-Logo-new (1).png" alt="Planet Fitness Logo" class="logo">
     <h1 style="color: black;">Spring Into Fitness Bingo</h1>
+
+    <div class="header-controls">
+      <button class="icon-btn" id="soundToggle" aria-pressed="true">🔊 Sound: On</button>
+      <button class="icon-btn" id="resetBtn">Reset Board</button>
+    </div>
+  </div>
+
+  <div class="stats" role="status" aria-live="polite">
+    <div class="progress-wrap" aria-label="Completion progress">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="stat-text"><span id="bingosCount">Bingos: 0</span> / 12</div>
   </div>
 
   <div id="completionMessage">🎉 You’ve completed the board! Don’t forget to submit your entry below.</div>
@@ -114,7 +204,9 @@
   <div class="grid" id="bingoGrid"></div>
 
   <div class="footer">
-    <button onclick="resetBoard()">Reset Board</button>
+    <div class="helper">Tip: “Share to Community” will open your device’s share sheet if available. Otherwise we’ll copy the text and download your board image so you can post it in Virtuagym Community.</div>
+    <button id="shareBtn" class="icon-btn">📣 Share to Community</button>
+
     <a href="https://docs.google.com/forms/d/e/1FAIpQLSerMFnMlIct6SgOL1Dn6-VWZzFobzPWt5QkUCBN_s72uQ_dBw/viewform" target="_self" class="submit-btn">
       Submit My Completed Board
     </a>
@@ -123,6 +215,7 @@
   <audio id="celebrationSound" src="https://assets.mixkit.co/sfx/preview/mixkit-game-level-completed-2059.mp3" preload="auto" playsinline></audio>
 
   <script>
+    // ---------- Config / Data ----------
     const tasks = [
       "Attend a Flow Class",
       "Use the Massage Chairs",
@@ -136,6 +229,7 @@
       "Drink 2L of Water",
       "Do a Wall Sit for 1 Min",
       "10 Min Post-Workout Stretch",
+      // (FREE tile inserted at index 12)
       "Try a New Machine",
       "Introduce Yourself to Staff",
       "Attend 3 Days in a Row",
@@ -150,59 +244,263 @@
       "Take 5 Min for Mindfulness"
     ];
 
+    const FREE_INDEX = 12; // center of 5x5
+    const TOTAL_TILES = 25;
+
+    const WIN_LINES = [
+      [0,1,2,3,4], [5,6,7,8,9], [10,11,12,13,14], [15,16,17,18,19], [20,21,22,23,24],
+      [0,5,10,15,20], [1,6,11,16,21], [2,7,12,17,22], [3,8,13,18,23], [4,9,14,19,24],
+      [0,6,12,18,24], [4,8,12,16,20]
+    ];
+
     const grid = document.getElementById("bingoGrid");
+    const progressBar = document.getElementById("progressBar");
+    const bingosCountEl = document.getElementById("bingosCount");
+    const soundToggle = document.getElementById("soundToggle");
+    const resetBtn = document.getElementById("resetBtn");
+    const shareBtn = document.getElementById("shareBtn");
+    const sound = document.getElementById("celebrationSound");
 
+    // ---------- Storage helpers ----------
     function saveProgress(state) {
-      localStorage.setItem("bingoProgress", JSON.stringify(state));
+      localStorage.setItem("bingoProgress_v2", JSON.stringify(state));
     }
-
     function loadProgress() {
-      return JSON.parse(localStorage.getItem("bingoProgress")) || [];
+      return JSON.parse(localStorage.getItem("bingoProgress_v2")) || [];
+    }
+    function saveCompletedLines(lines) {
+      localStorage.setItem("bingoLines_v2", JSON.stringify(lines));
+    }
+    function loadCompletedLines() {
+      return JSON.parse(localStorage.getItem("bingoLines_v2")) || [];
     }
 
-    function resetBoard() {
-      localStorage.removeItem("bingoProgress");
-      document.getElementById("completionMessage").style.display = "none";
-      renderGrid();
+    // ---------- UI helpers ----------
+    function tileElement(index) {
+      return grid.querySelector(`[data-idx="${index}"]`);
+    }
+    function playCelebrate(volume=1) {
+      if (!sound || soundToggle.getAttribute("aria-pressed") === "false") return;
+      try {
+        sound.currentTime = 0;
+        sound.volume = volume;
+        sound.muted = false;
+        sound.play().catch(()=>{});
+      } catch {}
+    }
+    function fireConfetti(particleCount=120) {
+      confetti({
+        particleCount,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#7726e0', '#a0e8af', '#ffffff']
+      });
+    }
+
+    function updateStats() {
+      const saved = loadProgress();
+      const pct = Math.round((saved.length / TOTAL_TILES) * 100);
+      progressBar.style.width = pct + "%";
+
+      const completedLines = loadCompletedLines();
+      bingosCountEl.textContent = `Bingos: ${completedLines.length}`;
+
+      if (saved.length === TOTAL_TILES) {
+        document.getElementById("completionMessage").style.display = "block";
+      } else {
+        document.getElementById("completionMessage").style.display = "none";
+      }
+    }
+
+    function checkForNewBingos() {
+      const saved = new Set(loadProgress());
+      const already = new Set(loadCompletedLines());
+
+      let foundNew = false;
+      WIN_LINES.forEach((line, idx) => {
+        if (already.has(idx)) return;
+        const complete = line.every(i => saved.has(i));
+        if (complete) {
+          already.add(idx);
+          foundNew = true;
+          playCelebrate(0.6);
+          fireConfetti(80);
+          line.forEach(i => {
+            const el = tileElement(i);
+            if (el) {
+              el.style.boxShadow = "0 0 0 3px #a0e8af inset";
+              setTimeout(()=> el.style.boxShadow = "", 1200);
+            }
+          });
+        }
+      });
+
+      if (foundNew) {
+        saveCompletedLines([...already]);
+        updateStats();
+      }
+    }
+
+    function handleToggle(index, el) {
+      if (index === FREE_INDEX) return;
+      el.classList.toggle("completed");
+
+      const newSaved = Array.from(grid.children).reduce((arr, el) => {
+        const idx = Number(el.getAttribute("data-idx"));
+        if (el.classList.contains("completed")) arr.push(idx);
+        return arr;
+      }, []);
+
+      saveProgress(newSaved);
+      updateStats();
+
+      if (newSaved.length === TOTAL_TILES) {
+        playCelebrate(1);
+        fireConfetti(150);
+      } else {
+        playCelebrate(0.25);
+      }
+
+      checkForNewBingos();
     }
 
     function renderGrid() {
       grid.innerHTML = "";
-      const saved = loadProgress();
-      tasks.forEach((task, index) => {
-        const tile = document.createElement("div");
-        tile.className = "tile";
-        tile.textContent = task;
-        if (saved.includes(index)) tile.classList.add("completed");
-        tile.onclick = () => {
-          tile.classList.toggle("completed");
-          const newSaved = Array.from(grid.children).reduce((arr, el, i) => {
-            if (el.classList.contains("completed")) arr.push(i);
-            return arr;
-          }, []);
-          saveProgress(newSaved);
 
-          if (newSaved.length === tasks.length) {
-            document.getElementById("completionMessage").style.display = "block";
-            const sound = document.getElementById("celebrationSound");
-            if (sound) {
-  sound.currentTime = 0;
-  sound.volume = 1;
-  sound.muted = false;
-  sound.play().catch(e => console.log("Audio play failed:", e));
-}
-            confetti({
-              particleCount: 100,
-              spread: 80,
-              origin: { y: 0.6 },
-              colors: ['#7726e0', '#a0e8af', '#ffffff']
-            });
-          }
-        };
+      const fullList = [...tasks];
+      fullList.splice(FREE_INDEX, 0, "FREE");
+
+      const saved = new Set(loadProgress());
+
+      fullList.forEach((label, idx) => {
+        const tile = document.createElement("button");
+        tile.type = "button";
+        tile.className = "tile";
+        tile.setAttribute("data-idx", String(idx));
+        tile.setAttribute("aria-pressed", saved.has(idx) ? "true" : "false");
+        tile.setAttribute("role", "button");
+        tile.textContent = label;
+
+        if (idx === FREE_INDEX) {
+          tile.classList.add("free", "completed");
+          tile.setAttribute("aria-disabled", "true");
+          tile.tabIndex = -1;
+        } else if (saved.has(idx)) {
+          tile.classList.add("completed");
+        }
+
+        tile.addEventListener("click", () => {
+          tile.setAttribute(
+            "aria-pressed",
+            tile.classList.contains("completed") ? "false" : "true"
+          );
+          handleToggle(idx, tile);
+        });
+
         grid.appendChild(tile);
       });
+
+      // ensure FREE tile is persisted
+      if (!saved.has(FREE_INDEX)) {
+        const updated = new Set(saved);
+        updated.add(FREE_INDEX);
+        saveProgress([...updated]);
+      }
+
+      updateStats();
+      checkForNewBingos();
     }
 
+    // ---------- Share to Community (Option A) ----------
+    function getProgressState() {
+      const saved =
+        JSON.parse(localStorage.getItem("bingoProgress_v2")) ||
+        JSON.parse(localStorage.getItem("bingoProgress")) || [];
+      // ensure FREE is included
+      if (!saved.includes(FREE_INDEX)) saved.push(FREE_INDEX);
+      return Array.from(new Set(saved)).sort((a,b)=>a-b);
+    }
+
+    function buildShareLink() {
+      const base = location.origin + location.pathname;
+      const state = getProgressState();
+      const code = btoa(JSON.stringify(state));
+      return `${base}?state=${encodeURIComponent(code)}`;
+    }
+
+    async function captureBoardPNG() {
+      const el = document.getElementById("bingoGrid");
+      const canvas = await html2canvas(el, { backgroundColor: "#ffffff", scale: 2 });
+      return new Promise(resolve =>
+        canvas.toBlob(b => resolve(new File([b], "bingo.png", { type: "image/png" })), "image/png")
+      );
+    }
+
+    async function shareProgress() {
+      const done = getProgressState().length;
+      const link = buildShareLink();
+      const tilesTotal = TOTAL_TILES;
+      const text = `I’m ${done}/${tilesTotal} on the Spring Into Fitness Bingo at Planet Fitness! 💪\nFollow my board here: ${link}`;
+
+      try {
+        const file = await captureBoardPNG();
+
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({
+            title: "Spring Into Fitness Bingo",
+            text,
+            files: [file]
+          });
+          return;
+        }
+
+        await navigator.clipboard.writeText(text);
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(file);
+        a.download = "bingo.png";
+        a.click();
+        alert("Copied your post text! PNG downloaded—open Virtuagym Community and paste/upload.");
+      } catch (e) {
+        console.error(e);
+        try {
+          await navigator.clipboard.writeText(text);
+          alert("Couldn’t open the share sheet. We copied your post text—please paste it into Virtuagym Community.");
+        } catch {}
+      }
+    }
+
+    function restoreFromQuery() {
+      const p = new URLSearchParams(location.search).get("state");
+      if (!p) return;
+      try {
+        const state = JSON.parse(atob(p));
+        if (Array.isArray(state)) {
+          localStorage.setItem("bingoProgress_v2", JSON.stringify(state));
+          // Clear any previous line calc; let it recompute
+          localStorage.removeItem("bingoLines_v2");
+        }
+      } catch {}
+    }
+
+    // ---------- Event wiring ----------
+    soundToggle.addEventListener("click", () => {
+      const isOn = soundToggle.getAttribute("aria-pressed") === "true";
+      soundToggle.setAttribute("aria-pressed", String(!isOn));
+      soundToggle.textContent = !isOn ? "🔊 Sound: On" : "🔇 Sound: Off";
+    });
+
+    resetBtn.addEventListener("click", () => {
+      localStorage.removeItem("bingoProgress_v2");
+      localStorage.removeItem("bingoLines_v2");
+      document.getElementById("completionMessage").style.display = "none";
+      renderGrid();
+      updateStats();
+    });
+
+    shareBtn.addEventListener("click", shareProgress);
+
+    // ---------- Init ----------
+    restoreFromQuery();
     renderGrid();
   </script>
 </body>
