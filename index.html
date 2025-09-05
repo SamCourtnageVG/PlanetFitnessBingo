@@ -50,7 +50,6 @@
       max-width: 680px;
     }
 
-    /* Fixed 5x5 grid so the FREE tile is the true center (index 12) */
     .grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
@@ -61,13 +60,12 @@
       padding: 0 12px;
     }
 
-    /* On very small phones, make tiles taller and text smaller */
     @media (max-width: 420px){
       .tile { min-height: 98px; font-size: 12px; }
     }
 
     .tile {
-      position: relative; /* for logo overlay */
+      position: relative;
       border: 2px solid #e5e5e5;
       padding: 12px;
       background-color: var(--tile);
@@ -87,7 +85,6 @@
     }
     .tile:active { transform: scale(0.985); }
 
-    /* Completed STYLE: washed out + small PF logo overlay (no green fill) */
     .tile.completed {
       opacity: 0.65;
       filter: grayscale(0.2) brightness(0.98);
@@ -104,7 +101,6 @@
       pointer-events: none;
     }
 
-    /* FREE tile (non-clickable) */
     .tile.free {
       background:
         linear-gradient(0deg, rgba(119,38,224,0.08), rgba(119,38,224,0.08)),
@@ -113,12 +109,6 @@
       font-weight: bold;
       color: #000;
       cursor: default;
-    }
-
-    @keyframes bounce {
-      0% { transform: scale(1); }
-      50% { transform: scale(1.06); }
-      100% { transform: scale(1); }
     }
 
     .footer {
@@ -146,7 +136,7 @@
       box-shadow: 1px 1px 3px var(--shadow);
       display: flex;
       align-items: center;
-      justify-content: center; /* center text perfectly */
+      justify-content: center;
       text-align: center;
     }
     button:hover, .submit-btn:hover { background-color: #eadefb; }
@@ -171,25 +161,40 @@
       margin: 10px 16px;
     }
 
-    .toast {
+    /* Overlay modal */
+    .overlay {
       position: fixed;
-      left: 50%;
-      bottom: env(safe-area-inset-bottom, 12px);
-      transform: translateX(-50%);
-      background: #000;
-      color: #fff;
-      padding: 10px 14px;
-      border-radius: 999px;
-      font-size: 14px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity .2s ease;
-      z-index: 20;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
     }
-    .toast.show { opacity: 0.96; }
+    .overlay.show { display: flex; }
+    .overlay-box {
+      background: #fff;
+      color: #000;
+      max-width: 90%;
+      padding: 20px;
+      border-radius: 10px;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .overlay-box h2 {
+      margin-top: 0;
+      color: var(--pf-purple);
+    }
+    .overlay-box button {
+      margin-top: 14px;
+      background: var(--pf-purple);
+      color: #fff;
+    }
+    .overlay-box button:hover {
+      background: #5e1ab6;
+    }
   </style>
 
-  <!-- Confetti (visual only, no sound) -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
@@ -215,174 +220,20 @@
     </a>
   </div>
 
-  <div class="toast" id="toast">Copied!</div>
+  <!-- Overlay -->
+  <div class="overlay" id="overlay">
+    <div class="overlay-box">
+      <h2>Progress Copied!</h2>
+      <p>Head to the <strong>Planet Fitness Community</strong> and paste your progress into a new post. Share your wins and motivate others!</p>
+      <button id="closeOverlay">Got it</button>
+    </div>
+  </div>
 
   <script>
-    // -------- 24 original tasks (FREE tile will be inserted at the center) --------
     const baseTasks = [
-      "Attend a Flow Class",
-      "Use the Massage Chairs",
-      "Track Workout in PF App",
-      "Attend a Burn Class",
-      "Do the S8 Program",
-      "Attend a Strength Class",
-      "Attend a Core Class",
-      "Share Your Fitness Goal",
-      "Attend a Circuit Class",
-      "Drink 2L of Water",
-      "Do a Wall Sit for 1 Min",
-      "10 Min Post-Workout Stretch",
-      "Try a New Machine",
-      "Introduce Yourself to Staff",
-      "Attend 3 Days in a Row",
-      "Wear Spring Colours",
-      "Try a New Healthy Snack",
-      "Attend a Zumba Class",
-      "Bring a Friend to the Gym",
-      "Take a Gym Selfie",
-      "Read a Health Article",
-      "Do 15 Min of Cardio",
-      "Track a Meal",
-      "Take 5 Min for Mindfulness"
-    ];
-
-    // Build full list with FREE tile at the exact center (index 12 in a 5x5)
-    const FREE_INDEX = 12;
-    const tasks = (() => {
-      const t = [...baseTasks];
-      t.splice(FREE_INDEX, 0, "FREE");
-      return t;
-    })();
-
-    const TOTAL_TILES = tasks.length; // 25
-    const grid = document.getElementById("bingoGrid");
-    const toast = document.getElementById("toast");
-
-    // Use a new storage key (v3) to avoid conflicts with older boards
-    function saveProgress(state) {
-      localStorage.setItem("bingoProgress_v3", JSON.stringify(state));
-    }
-    function loadProgress() {
-      return JSON.parse(localStorage.getItem("bingoProgress_v3")) || [];
-    }
-
-    function resetBoard() {
-      localStorage.removeItem("bingoProgress_v3");
-      document.getElementById("completionMessage").style.display = "none";
-      renderGrid();
-    }
-
-    // Allow staff to verify via ?state= (indices array)
-    function restoreFromQuery() {
-      const p = new URLSearchParams(location.search).get("state");
-      if (!p) return;
-      try {
-        const restored = JSON.parse(atob(p));
-        if (Array.isArray(restored)) {
-          // keep only valid indices for our 25-tile setup
-          const valid = restored.filter(i => Number.isInteger(i) && i >= 0 && i < TOTAL_TILES);
-          saveProgress(valid);
-        }
-      } catch {}
-    }
-
-    function showToast(msg="Copied!") {
-      toast.textContent = msg;
-      toast.classList.add("show");
-      setTimeout(()=> toast.classList.remove("show"), 1400);
-    }
-
-    function renderGrid() {
-      grid.innerHTML = "";
-      const saved = new Set(loadProgress());
-
-      tasks.forEach((task, index) => {
-        const tile = document.createElement("div");
-        tile.className = "tile";
-        tile.textContent = task;
-
-        // FREE tile is always completed and not interactive
-        if (index === FREE_INDEX) {
-          tile.classList.add("free", "completed");
-          tile.style.cursor = "default";
-        } else if (saved.has(index)) {
-          tile.classList.add("completed");
-          tile.style.animation = "bounce 0.28s ease";
-        }
-
-        tile.onclick = () => {
-          if (index === FREE_INDEX) return; // non-clickable
-          tile.classList.toggle("completed");
-
-          const newSaved = Array.from(grid.children).reduce((arr, el, i) => {
-            if (i === FREE_INDEX) { // skip FREE (we don't store it; we'll add it later)
-              return arr;
-            }
-            if (el.classList.contains("completed")) arr.push(i);
-            return arr;
-          }, []);
-
-          saveProgress(newSaved);
-
-          const totalCompleted = newSaved.length + 1; // +1 for FREE
-          if (totalCompleted === TOTAL_TILES) {
-            document.getElementById("completionMessage").style.display = "block";
-            confetti({
-              particleCount: 100,
-              spread: 80,
-              origin: { y: 0.6 },
-              colors: ['#7726e0', '#ffffff']
-            });
-          } else {
-            document.getElementById("completionMessage").style.display = "none";
-          }
-        };
-
-        grid.appendChild(tile);
-      });
-
-      // Ensure FREE is visually completed even if no storage yet
-      // (We don't need to store FREE in localStorage; we treat it as always-on.)
-    }
-
-    // Build shareable link encoding the indices of completed tiles (excluding FREE)
-    function buildShareLink() {
-      const base = location.origin + location.pathname;
-      const saved = loadProgress().sort((a,b)=>a-b);
-      const code = btoa(JSON.stringify(saved));
-      return `${base}?state=${encodeURIComponent(code)}`;
-    }
-
-    // Copy text for Planet Fitness Community
-    function buildShareText() {
-      const saved = loadProgress();
-      const done = saved.length + 1; // +1 for FREE tile
-      const total = TOTAL_TILES;
-      const link = buildShareLink();
-
-      // Build a short preview of up to 6 completed (exclude FREE)
-      const preview = saved.slice(0, 6).map(i => `• ${tasks[i]}`).join("\n");
-      const previewBlock = preview ? `\n\nRecent wins:\n${preview}` : "";
-
-      return `I’m ${done}/${total} on the Spring Into Fitness Bingo at Planet Fitness! 💪
-Follow my board here: ${link}${previewBlock}`;
-    }
-
-    async function copyMyProgress() {
-      const text = buildShareText();
-      try {
-        await navigator.clipboard.writeText(text);
-        showToast("Progress copied!");
-      } catch (e) {
-        window.prompt("Copy your progress text:", text);
-      }
-    }
-
-    document.getElementById("copyBtn").addEventListener("click", copyMyProgress);
-    document.getElementById("resetBtn").addEventListener("click", resetBoard);
-
-    restoreFromQuery();
-    renderGrid();
-  </script>
-</body>
-</html>
+      "Attend a Flow Class","Use the Massage Chairs","Track Workout in PF App","Attend a Burn Class",
+      "Do the S8 Program","Attend a Strength Class","Attend a Core Class","Share Your Fitness Goal",
+      "Attend a Circuit Class","Drink 2L of Water","Do a Wall Sit for 1 Min","10 Min Post-Workout Stretch",
+      "Try a New Machine","Introduce Yourself to Staff","Attend 3 Days in a Row","Wear Spring Colours",
+      "Try a New Healthy Snack","Attend a Zumba Class","Bring a Friend to the Gym","Take a Gym Selfie",
+      "Read a Health Article","Do 15 Min
