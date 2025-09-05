@@ -7,7 +7,6 @@
   <style>
     :root{
       --pf-purple:#7726e0;
-      --pf-green:#a0e8af;
       --bg:#7726e0;
       --tile:#ffffff;
       --text:#000000;
@@ -51,9 +50,10 @@
       max-width: 680px;
     }
 
+    /* Fixed 5x5 grid so the FREE tile is the true center (index 12) */
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      grid-template-columns: repeat(5, 1fr);
       gap: 8px;
       width: 100%;
       max-width: 680px;
@@ -61,17 +61,19 @@
       padding: 0 12px;
     }
 
-    @media (max-width: 400px){
-      .grid { grid-template-columns: repeat(3, 1fr); }
+    /* On very small phones, make tiles taller and text smaller */
+    @media (max-width: 420px){
+      .tile { min-height: 98px; font-size: 12px; }
     }
 
     .tile {
+      position: relative; /* for logo overlay */
       border: 2px solid #e5e5e5;
       padding: 12px;
       background-color: var(--tile);
       text-align: center;
       cursor: pointer;
-      transition: background-color 0.2s, transform 0.06s;
+      transition: transform 0.06s, filter 0.2s, opacity 0.2s;
       user-select: none;
       word-wrap: break-word;
       box-shadow: 1px 1px 3px var(--shadow);
@@ -85,10 +87,32 @@
     }
     .tile:active { transform: scale(0.985); }
 
+    /* Completed STYLE: washed out + small PF logo overlay (no green fill) */
     .tile.completed {
-      background-color: var(--pf-green);
-      text-decoration: line-through;
-      animation: bounce 0.28s ease;
+      opacity: 0.65;
+      filter: grayscale(0.2) brightness(0.98);
+    }
+    .tile.completed::after {
+      content: "";
+      position: absolute;
+      width: 36px;
+      height: 36px;
+      right: 6px;
+      bottom: 6px;
+      background: url("PF-Cog-Logo-new (1).png") center/contain no-repeat;
+      opacity: 0.95;
+      pointer-events: none;
+    }
+
+    /* FREE tile (non-clickable) */
+    .tile.free {
+      background:
+        linear-gradient(0deg, rgba(119,38,224,0.08), rgba(119,38,224,0.08)),
+        #fff;
+      border-style: dashed;
+      font-weight: bold;
+      color: #000;
+      cursor: default;
     }
 
     @keyframes bounce {
@@ -122,7 +146,7 @@
       box-shadow: 1px 1px 3px var(--shadow);
       display: flex;
       align-items: center;
-      justify-content: center; /* ensures text is centered */
+      justify-content: center; /* center text perfectly */
       text-align: center;
     }
     button:hover, .submit-btn:hover { background-color: #eadefb; }
@@ -134,7 +158,7 @@
       width: 100%;
       max-width: 680px;
     }
-    @media (max-width: 460px){
+    @media (max-width: 480px){
       .btn-row { grid-template-columns: 1fr; }
     }
 
@@ -165,6 +189,7 @@
     .toast.show { opacity: 0.96; }
   </style>
 
+  <!-- Confetti (visual only, no sound) -->
   <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
 </head>
 <body>
@@ -193,7 +218,8 @@
   <div class="toast" id="toast">Copied!</div>
 
   <script>
-    const tasks = [
+    // -------- 24 original tasks (FREE tile will be inserted at the center) --------
+    const baseTasks = [
       "Attend a Flow Class",
       "Use the Massage Chairs",
       "Track Workout in PF App",
@@ -220,29 +246,42 @@
       "Take 5 Min for Mindfulness"
     ];
 
+    // Build full list with FREE tile at the exact center (index 12 in a 5x5)
+    const FREE_INDEX = 12;
+    const tasks = (() => {
+      const t = [...baseTasks];
+      t.splice(FREE_INDEX, 0, "FREE");
+      return t;
+    })();
+
+    const TOTAL_TILES = tasks.length; // 25
     const grid = document.getElementById("bingoGrid");
     const toast = document.getElementById("toast");
 
+    // Use a new storage key (v3) to avoid conflicts with older boards
     function saveProgress(state) {
-      localStorage.setItem("bingoProgress", JSON.stringify(state));
+      localStorage.setItem("bingoProgress_v3", JSON.stringify(state));
     }
     function loadProgress() {
-      return JSON.parse(localStorage.getItem("bingoProgress")) || [];
+      return JSON.parse(localStorage.getItem("bingoProgress_v3")) || [];
     }
 
     function resetBoard() {
-      localStorage.removeItem("bingoProgress");
+      localStorage.removeItem("bingoProgress_v3");
       document.getElementById("completionMessage").style.display = "none";
       renderGrid();
     }
 
+    // Allow staff to verify via ?state= (indices array)
     function restoreFromQuery() {
       const p = new URLSearchParams(location.search).get("state");
       if (!p) return;
       try {
         const restored = JSON.parse(atob(p));
         if (Array.isArray(restored)) {
-          saveProgress(restored.filter(i => Number.isInteger(i) && i >= 0 && i < tasks.length));
+          // keep only valid indices for our 25-tile setup
+          const valid = restored.filter(i => Number.isInteger(i) && i >= 0 && i < TOTAL_TILES);
+          saveProgress(valid);
         }
       } catch {}
     }
@@ -255,36 +294,58 @@
 
     function renderGrid() {
       grid.innerHTML = "";
-      const saved = loadProgress();
+      const saved = new Set(loadProgress());
+
       tasks.forEach((task, index) => {
         const tile = document.createElement("div");
         tile.className = "tile";
         tile.textContent = task;
-        if (saved.includes(index)) tile.classList.add("completed");
+
+        // FREE tile is always completed and not interactive
+        if (index === FREE_INDEX) {
+          tile.classList.add("free", "completed");
+          tile.style.cursor = "default";
+        } else if (saved.has(index)) {
+          tile.classList.add("completed");
+          tile.style.animation = "bounce 0.28s ease";
+        }
+
         tile.onclick = () => {
+          if (index === FREE_INDEX) return; // non-clickable
           tile.classList.toggle("completed");
+
           const newSaved = Array.from(grid.children).reduce((arr, el, i) => {
+            if (i === FREE_INDEX) { // skip FREE (we don't store it; we'll add it later)
+              return arr;
+            }
             if (el.classList.contains("completed")) arr.push(i);
             return arr;
           }, []);
+
           saveProgress(newSaved);
 
-          if (newSaved.length === tasks.length) {
+          const totalCompleted = newSaved.length + 1; // +1 for FREE
+          if (totalCompleted === TOTAL_TILES) {
             document.getElementById("completionMessage").style.display = "block";
             confetti({
               particleCount: 100,
               spread: 80,
               origin: { y: 0.6 },
-              colors: ['#7726e0', '#a0e8af', '#ffffff']
+              colors: ['#7726e0', '#ffffff']
             });
           } else {
             document.getElementById("completionMessage").style.display = "none";
           }
         };
+
         grid.appendChild(tile);
       });
+
+      // Ensure FREE is visually completed even if no storage yet
+      // (We don't need to store FREE in localStorage; we treat it as always-on.)
     }
 
+    // Build shareable link encoding the indices of completed tiles (excluding FREE)
     function buildShareLink() {
       const base = location.origin + location.pathname;
       const saved = loadProgress().sort((a,b)=>a-b);
@@ -292,12 +353,14 @@
       return `${base}?state=${encodeURIComponent(code)}`;
     }
 
+    // Copy text for Planet Fitness Community
     function buildShareText() {
-      const done = loadProgress().length;
-      const total = tasks.length;
+      const saved = loadProgress();
+      const done = saved.length + 1; // +1 for FREE tile
+      const total = TOTAL_TILES;
       const link = buildShareLink();
 
-      const saved = loadProgress();
+      // Build a short preview of up to 6 completed (exclude FREE)
       const preview = saved.slice(0, 6).map(i => `• ${tasks[i]}`).join("\n");
       const previewBlock = preview ? `\n\nRecent wins:\n${preview}` : "";
 
