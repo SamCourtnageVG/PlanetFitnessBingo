@@ -53,7 +53,7 @@
       max-width: 680px;
     }
 
-    /* Fixed 4-columns grid (no horizontal scroll) */
+    /* Fixed 4-column grid (no horizontal scroll) */
     .grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
@@ -118,17 +118,6 @@
       .tile.completed::after { width: 26px; height: 26px; right: 3px; bottom: 3px; }
     }
 
-    /* FREE tile (non-clickable) */
-    .tile.free {
-      background:
-        linear-gradient(0deg, rgba(119,38,224,0.08), rgba(119,38,224,0.08)),
-        #fff;
-      border-style: dashed;
-      font-weight: bold;
-      color: #000;
-      cursor: default;
-    }
-
     .footer {
       margin: 8px 0 56px 0;
       display: flex;
@@ -180,7 +169,7 @@
       margin: 8px var(--sidepad);
     }
 
-    /* Overlay modal (after Copy) */
+    /* Overlay modal (after Share) */
     .overlay {
       position: fixed;
       inset: 0;
@@ -222,7 +211,7 @@
     <h1>Spring Into Fitness Bingo</h1>
   </div>
 
-  <p class="helper">Tap tiles to mark them off. Use “Copy My Progress” to paste your status into the Planet Fitness Community.</p>
+  <p class="helper">Tap tiles to mark them off. Use “Share My Progress” to paste your status into the Planet Fitness Community.</p>
 
   <div id="completionMessage">🎉 You’ve completed the board! Don’t forget to submit your entry below.</div>
 
@@ -230,7 +219,7 @@
 
   <div class="footer">
     <div class="btn-row">
-      <button id="copyBtn">📋 Copy My Progress</button>
+      <button id="shareBtn">📣 Share My Progress</button>
       <button id="resetBtn">↺ Reset Board</button>
     </div>
 
@@ -242,9 +231,9 @@
   <!-- Overlay -->
   <div class="overlay" id="overlay">
     <div class="overlay-box">
-      <h2>Progress Copied!</h2>
-      <p>Head to the <strong>Planet Fitness Community</strong> to share your progress.<br/>
-         Simply paste and post your update to motivate the team! 💪</p>
+      <h2>Share text copied!</h2>
+      <p>Head to the <strong>Planet Fitness Community</strong> to post your update.<br/>
+         Simply paste and post to cheer on the crew! 💪</p>
       <div class="overlay-actions">
         <button class="primary" id="closeOverlay">Got it</button>
       </div>
@@ -252,8 +241,8 @@
   </div>
 
   <script>
-    // -------- 24 original tasks (FREE tile will be inserted roughly mid-board) --------
-    const baseTasks = [
+    // -------- Original 24 tasks (no FREE tile) --------
+    const tasks = [
       "Attend a Flow Class",
       "Use the Massage Chairs",
       "Track Workout in PF App",
@@ -280,36 +269,22 @@
       "Take 5 Min for Mindfulness"
     ];
 
-    // Insert FREE after the 12th item so it lands mid-list (works for 4-col layout)
-    const FREE_INDEX = 12;
-    const tasks = (() => {
-      const t = [...baseTasks];
-      t.splice(FREE_INDEX, 0, "FREE");
-      return t;
-    })();
-
-    const TOTAL_TILES = tasks.length; // 25
+    const TOTAL_TILES = tasks.length; // 24
     const grid = document.getElementById("bingoGrid");
 
-    function saveProgress(state) { localStorage.setItem("bingoProgress_v4", JSON.stringify(state)); }
-    function loadProgress() { return JSON.parse(localStorage.getItem("bingoProgress_v4")) || []; }
+    // Storage (v5 to avoid collisions with older versions)
+    function saveProgress(state) { localStorage.setItem("bingoProgress_v5", JSON.stringify(state)); }
+    function loadProgress() { return JSON.parse(localStorage.getItem("bingoProgress_v5")) || []; }
+
+    // We'll also store a simple completion history to show "recent wins"
+    function saveHistory(history) { localStorage.setItem("bingoHistory_v5", JSON.stringify(history)); }
+    function loadHistory() { return JSON.parse(localStorage.getItem("bingoHistory_v5")) || []; }
+
     function resetBoard() {
-      localStorage.removeItem("bingoProgress_v4");
+      localStorage.removeItem("bingoProgress_v5");
+      localStorage.removeItem("bingoHistory_v5");
       document.getElementById("completionMessage").style.display = "none";
       renderGrid();
-    }
-
-    // Allow state verify via ?state=
-    function restoreFromQuery() {
-      const p = new URLSearchParams(location.search).get("state");
-      if (!p) return;
-      try {
-        const restored = JSON.parse(atob(p));
-        if (Array.isArray(restored)) {
-          const valid = restored.filter(i => Number.isInteger(i) && i >= 0 && i < TOTAL_TILES);
-          saveProgress(valid);
-        }
-      } catch {}
     }
 
     function renderGrid() {
@@ -321,27 +296,31 @@
         tile.className = "tile";
         tile.textContent = task;
 
-        // FREE tile: always completed & not interactive
-        if (index === FREE_INDEX) {
-          tile.classList.add("free", "completed");
-          tile.style.cursor = "default";
-        } else if (saved.has(index)) {
+        if (saved.has(index)) {
           tile.classList.add("completed");
         }
 
         tile.onclick = () => {
-          if (index === FREE_INDEX) return;
           tile.classList.toggle("completed");
 
+          // Rebuild saved set from DOM
           const newSaved = Array.from(grid.children).reduce((arr, el, i) => {
-            if (i === FREE_INDEX) return arr; // don't store FREE
             if (el.classList.contains("completed")) arr.push(i);
             return arr;
           }, []);
           saveProgress(newSaved);
 
-          const totalCompleted = newSaved.length + 1; // +1 for FREE
-          if (totalCompleted === TOTAL_TILES) {
+          // Update history (push when completed, remove when uncompleted)
+          let hist = loadHistory();
+          const wasCompleted = newSaved.includes(index);
+          if (wasCompleted) {
+            if (!hist.includes(index)) hist.push(index);
+          } else {
+            hist = hist.filter(i => i !== index);
+          }
+          saveHistory(hist);
+
+          if (newSaved.length === TOTAL_TILES) {
             document.getElementById("completionMessage").style.display = "block";
             confetti({
               particleCount: 90,
@@ -358,42 +337,80 @@
       });
     }
 
-    // Build shareable link encoding completed indices (excluding FREE)
-    function buildShareLink() {
-      const base = location.origin + location.pathname;
-      const saved = loadProgress().sort((a,b)=>a-b);
-      const code = btoa(JSON.stringify(saved));
-      return `${base}?state=${encodeURIComponent(code)}`;
+    // ---------- Creative share text (no links) ----------
+    function progressBar(done, total) {
+      const units = 10;
+      const filled = Math.round((done / total) * units);
+      const bar = "▰".repeat(filled) + "▱".repeat(units - filled);
+      return bar;
     }
 
-    // Copy text for Planet Fitness Community
+    function badgesFor(saved) {
+      const have = (label) => saved.includes(tasks.indexOf(label));
+      const out = [];
+
+      if (have("Drink 2L of Water")) out.push("🥤 Hydration Hero");
+      if (have("Bring a Friend to the Gym")) out.push("👯 Buddy Boost");
+      if (have("Attend 3 Days in a Row")) out.push("🔥 Streak Unlocked");
+      if (have("Try a New Machine")) out.push("🧭 Machine Explorer");
+      if (have("Read a Health Article")) out.push("📚 Learner Badge");
+      if (have("Take 5 Min for Mindfulness")) out.push("🧘 Zen Moment");
+      if (have("Use the Massage Chairs")) out.push("💆 Recovery Champ");
+      if (have("Take a Gym Selfie")) out.push("📸 Selfie Star");
+      if (have("Track Workout in PF App")) out.push("📱 App Tracker");
+
+      return out;
+    }
+
+    // Build the text the user will paste into the Planet Fitness Community
     function buildShareText() {
       const saved = loadProgress();
-      const done = saved.length + 1; // +1 for FREE tile
+      const done = saved.length;
       const total = TOTAL_TILES;
-      const link = buildShareLink();
 
-      const preview = saved.slice(0, 6).map(i => `• ${tasks[i]}`).join("\n");
-      const previewBlock = preview ? `\n\nRecent wins:\n${preview}` : "";
+      // Recent wins: last 4 completed by history
+      const hist = loadHistory();
+      const recent = hist.slice(-4).reverse().map(i => `• ${tasks[i]}`).join("\n");
+      const recentBlock = recent ? `\nRecent wins:\n${recent}` : "";
 
-      return `I’m ${done}/${total} on the Spring Into Fitness Bingo at Planet Fitness! 💪
-Follow my board here: ${link}${previewBlock}`;
+      // Next up: first 3 incomplete (simple, clear)
+      const nextUp = tasks
+        .map((t, i) => ({ t, i }))
+        .filter(({ i }) => !saved.includes(i))
+        .slice(0, 3)
+        .map(({ t }) => `◻︎ ${t}`)
+        .join("\n");
+      const nextBlock = nextUp ? `\nNext up:\n${nextUp}` : "";
+
+      // Fun badges based on which tasks are completed
+      const earned = badgesFor(saved);
+      const badgeLine = earned.length ? `\nBadges: ${earned.join(" | ")}` : "";
+
+      // Date stamp (helps context without exposing any URL)
+      const when = new Date().toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+      return `Spring Into Fitness Bingo — Progress Update (${when})
+${done}/${total} complete  ${progressBar(done, total)}
+
+Let’s go, PF fam! 💜${recentBlock}${nextBlock}${badgeLine}
+
+#SpringIntoFitness #PlanetFitnessCommunity #PlanetFitnessAU`;
     }
 
-    async function copyMyProgress() {
+    async function shareMyProgress() {
       const text = buildShareText();
       try { await navigator.clipboard.writeText(text); }
       catch { window.prompt("Copy your progress text:", text); }
       document.getElementById("overlay").classList.add("show");
     }
 
-    document.getElementById("copyBtn").addEventListener("click", copyMyProgress);
+    document.getElementById("shareBtn").addEventListener("click", shareMyProgress);
     document.getElementById("resetBtn").addEventListener("click", resetBoard);
     document.getElementById("closeOverlay").addEventListener("click", () => {
       document.getElementById("overlay").classList.remove("show");
     });
 
-    restoreFromQuery();
+    // Init
     renderGrid();
   </script>
 </body>
