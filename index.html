@@ -11,13 +11,13 @@
       --tile:#ffffff;
       --text:#000000;
       --shadow:rgba(0,0,0,0.1);
-      --sidepad:10px; /* tighter side padding on phones */
+      --sidepad:10px;
       --gap:8px;
     }
 
     * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { width: 100%; overflow-x: hidden; }
 
-    html, body { width: 100%; overflow-x: hidden; } /* hard stop horizontal scroll */
     body {
       font-family: Arial, sans-serif;
       display: flex;
@@ -53,16 +53,16 @@
       max-width: 680px;
     }
 
-    /* Fixed 5x5 grid so FREE tile is true center (index 12) */
+    /* Fixed 4-columns grid (no horizontal scroll) */
     .grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: var(--gap);
       width: 100%;
-      max-width: 100vw;          /* never exceed viewport */
+      max-width: 100vw;
       margin: 12px auto 18px;
-      padding: 0 var(--sidepad); /* tight side padding */
-      overflow-x: hidden;        /* belt & suspenders */
+      padding: 0 var(--sidepad);
+      overflow-x: hidden;
     }
 
     .tile {
@@ -74,7 +74,8 @@
       cursor: pointer;
       transition: transform 0.06s, filter 0.2s, opacity 0.2s;
       user-select: none;
-      /* Wrap aggressively so long words don’t force horizontal expand */
+
+      /* prevent horizontal overflow from long words */
       word-break: break-word;
       overflow-wrap: anywhere;
       hyphens: auto;
@@ -82,7 +83,7 @@
       box-shadow: 1px 1px 3px var(--shadow);
       border-radius: 8px;
 
-      min-height: 88px;                /* comfy tap target */
+      min-height: 88px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -91,7 +92,7 @@
     }
     .tile:active { transform: scale(0.985); }
 
-    /* Ultra-small phones: make everything a touch tighter */
+    /* Ultra-small phones */
     @media (max-width: 380px){
       :root{ --sidepad:8px; --gap:6px; }
       .tile{ padding: 8px; min-height: 74px; font-size: 11.5px; }
@@ -179,7 +180,7 @@
       margin: 8px var(--sidepad);
     }
 
-    /* Overlay modal */
+    /* Overlay modal (after Copy) */
     .overlay {
       position: fixed;
       inset: 0;
@@ -207,15 +208,8 @@
       font-size: 20px;
     }
     .overlay-box p { margin: 10px 0 0 0; line-height: 1.35; }
-    .overlay-actions {
-      margin-top: 14px;
-      display: grid;
-      gap: 10px;
-    }
-    .overlay-actions .primary {
-      background: var(--pf-purple);
-      color: #fff;
-    }
+    .overlay-actions { margin-top: 14px; display: grid; gap: 10px; }
+    .overlay-actions .primary { background: var(--pf-purple); color: #fff; }
     .overlay-actions .primary:hover { background: #5e1ab6; }
   </style>
 
@@ -258,7 +252,7 @@
   </div>
 
   <script>
-    // -------- 24 original tasks (FREE tile will be inserted at the center) --------
+    // -------- 24 original tasks (FREE tile will be inserted roughly mid-board) --------
     const baseTasks = [
       "Attend a Flow Class",
       "Use the Massage Chairs",
@@ -286,7 +280,7 @@
       "Take 5 Min for Mindfulness"
     ];
 
-    // Build full list with FREE tile at the exact center (index 12 in a 5x5)
+    // Insert FREE after the 12th item so it lands mid-list (works for 4-col layout)
     const FREE_INDEX = 12;
     const tasks = (() => {
       const t = [...baseTasks];
@@ -297,14 +291,10 @@
     const TOTAL_TILES = tasks.length; // 25
     const grid = document.getElementById("bingoGrid");
 
-    function saveProgress(state) {
-      localStorage.setItem("bingoProgress_v3", JSON.stringify(state));
-    }
-    function loadProgress() {
-      return JSON.parse(localStorage.getItem("bingoProgress_v3")) || [];
-    }
+    function saveProgress(state) { localStorage.setItem("bingoProgress_v4", JSON.stringify(state)); }
+    function loadProgress() { return JSON.parse(localStorage.getItem("bingoProgress_v4")) || []; }
     function resetBoard() {
-      localStorage.removeItem("bingoProgress_v3");
+      localStorage.removeItem("bingoProgress_v4");
       document.getElementById("completionMessage").style.display = "none";
       renderGrid();
     }
@@ -368,7 +358,7 @@
       });
     }
 
-    // Build shareable link encoding the indices of completed tiles (excluding FREE)
+    // Build shareable link encoding completed indices (excluding FREE)
     function buildShareLink() {
       const base = location.origin + location.pathname;
       const saved = loadProgress().sort((a,b)=>a-b);
@@ -392,13 +382,8 @@ Follow my board here: ${link}${previewBlock}`;
 
     async function copyMyProgress() {
       const text = buildShareText();
-      try {
-        await navigator.clipboard.writeText(text);
-      } catch {
-        // Fallback prompt if clipboard API is blocked
-        window.prompt("Copy your progress text:", text);
-      }
-      // Show the helpful overlay every time
+      try { await navigator.clipboard.writeText(text); }
+      catch { window.prompt("Copy your progress text:", text); }
       document.getElementById("overlay").classList.add("show");
     }
 
