@@ -236,4 +236,77 @@
       "Attend a Circuit Class","Drink 2L of Water","Do a Wall Sit for 1 Min","10 Min Post-Workout Stretch",
       "Try a New Machine","Introduce Yourself to Staff","Attend 3 Days in a Row","Wear Spring Colours",
       "Try a New Healthy Snack","Attend a Zumba Class","Bring a Friend to the Gym","Take a Gym Selfie",
-      "Read a Health Article","Do 15 Min
+      "Read a Health Article","Do 15 Min of Cardio","Track a Meal","Take 5 Min for Mindfulness"
+    ];
+    const FREE_INDEX = 12;
+    const tasks = (() => {
+      const t=[...baseTasks]; t.splice(FREE_INDEX,0,"FREE"); return t;
+    })();
+    const TOTAL_TILES=tasks.length;
+    const grid=document.getElementById("bingoGrid");
+
+    function saveProgress(state){localStorage.setItem("bingoProgress_v3",JSON.stringify(state));}
+    function loadProgress(){return JSON.parse(localStorage.getItem("bingoProgress_v3"))||[];}
+    function resetBoard(){localStorage.removeItem("bingoProgress_v3");document.getElementById("completionMessage").style.display="none";renderGrid();}
+
+    function restoreFromQuery(){
+      const p=new URLSearchParams(location.search).get("state");if(!p)return;
+      try{const restored=JSON.parse(atob(p));if(Array.isArray(restored)){const valid=restored.filter(i=>Number.isInteger(i)&&i>=0&&i<TOTAL_TILES);saveProgress(valid);}}catch{}
+    }
+
+    function renderGrid(){
+      grid.innerHTML="";const saved=new Set(loadProgress());
+      tasks.forEach((task,index)=>{
+        const tile=document.createElement("div");
+        tile.className="tile";tile.textContent=task;
+        if(index===FREE_INDEX){tile.classList.add("free","completed");tile.style.cursor="default";}
+        else if(saved.has(index)){tile.classList.add("completed");}
+        tile.onclick=()=>{
+          if(index===FREE_INDEX)return;
+          tile.classList.toggle("completed");
+          const newSaved=Array.from(grid.children).reduce((arr,el,i)=>{
+            if(i===FREE_INDEX)return arr;
+            if(el.classList.contains("completed"))arr.push(i);
+            return arr;
+          },[]);
+          saveProgress(newSaved);
+          const totalCompleted=newSaved.length+1;
+          if(totalCompleted===TOTAL_TILES){
+            document.getElementById("completionMessage").style.display="block";
+            confetti({particleCount:100,spread:80,origin:{y:0.6},colors:['#7726e0','#ffffff']});
+          } else {document.getElementById("completionMessage").style.display="none";}
+        };
+        grid.appendChild(tile);
+      });
+    }
+
+    function buildShareLink(){
+      const base=location.origin+location.pathname;
+      const saved=loadProgress().sort((a,b)=>a-b);
+      const code=btoa(JSON.stringify(saved));
+      return `${base}?state=${encodeURIComponent(code)}`;
+    }
+
+    function buildShareText(){
+      const saved=loadProgress();
+      const done=saved.length+1;const total=TOTAL_TILES;const link=buildShareLink();
+      const preview=saved.slice(0,6).map(i=>`• ${tasks[i]}`).join("\n");
+      const previewBlock=preview?`\n\nRecent wins:\n${preview}`:"";
+      return `I’m ${done}/${total} on the Spring Into Fitness Bingo at Planet Fitness! 💪
+Follow my board here: ${link}${previewBlock}`;
+    }
+
+    async function copyMyProgress(){
+      const text=buildShareText();
+      try{await navigator.clipboard.writeText(text);}catch{window.prompt("Copy your progress text:",text);}
+      document.getElementById("overlay").classList.add("show");
+    }
+
+    document.getElementById("copyBtn").addEventListener("click",copyMyProgress);
+    document.getElementById("resetBtn").addEventListener("click",resetBoard);
+    document.getElementById("closeOverlay").addEventListener("click",()=>document.getElementById("overlay").classList.remove("show"));
+
+    restoreFromQuery();renderGrid();
+  </script>
+</body>
+</html>
